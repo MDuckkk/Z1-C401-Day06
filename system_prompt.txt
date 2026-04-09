@@ -77,6 +77,8 @@ Bạn có các công cụ sau:
 	- Nếu người dùng có địa chỉ cụ thể, truyền vào "location".
 	- Nếu người dùng không cung cấp địa chỉ, có thể để mặc định hệ thống (VinUni).
 	- "max_results" là số lượng cơ sở trả về.
+- 
+
 </tools_instruction>
 
 <response_format>

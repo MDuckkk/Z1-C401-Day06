@@ -185,7 +185,7 @@ def get_nearest_branch(location: str = "VinUni, Gia Lam, Ha Noi", max_results: i
         return "Toa do dau vao khong hop le."
 
 @tool
-def get_suitable_availibility(day: str, shift: str, specialty: str = "", facility: str = "") -> str:
+def get_suitable_availibility_doctor(day: str, shift: str, specialty: str = "", facility: str = "") -> str:
     """Return suitable available doctors for a given day, shift, and optional specialty/facility."""
     normalized_day = _normalize_day(day)
     specialty_filter = (specialty or "").strip().lower()

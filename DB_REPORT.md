@@ -16,6 +16,26 @@ Mặc định tạo DB tại `data/vinmec.sqlite`.
 python scripts/import_data.py
 ```
 
+### Chạy lại từ đầu (reset DB)
+
+Nếu schema thay đổi, cần xoá DB cũ trước rồi tạo lại:
+
+```bash
+# Linux / macOS
+rm data/vinmec.sqlite
+python scripts/create_db.py
+python scripts/import_data.py
+```
+
+```powershell
+# Windows (PowerShell)
+Remove-Item data/vinmec.sqlite
+python scripts/create_db.py
+python scripts/import_data.py
+```
+
+> Lý do: `create_db.py` dùng `CREATE TABLE IF NOT EXISTS` nên không tự xoá schema cũ. Phải xoá file `.sqlite` thủ công khi có thay đổi cấu trúc bảng.
+
 Các tham số:
 
 | Tham số | Mặc định |

@@ -297,6 +297,18 @@ def get_suitable_availibility_doctor(day: str, shift: str, specialty: str = "", 
 def get_today_date() -> str:
     """Return today's date in YYYY-MM-DD format."""
     return datetime.now().strftime("%Y-%m-%d")
+    
+@tool
+def calculate_age(birth_date: str) -> str:
+    """Calculate age from birth date in YYYY-MM-DD format."""
+    try:
+        birth = datetime.strptime(birth_date, "%Y-%m-%d")
+        today = datetime.now()
+        age = today.year - birth.year - ((today.month, today.day) < (birth.month, birth.day))
+        return str(age)
+    except ValueError:
+        return "Birth date format should be YYYY-MM-DD."
+
 
 @tool
 def get_all_specialties(facility: str) -> str:

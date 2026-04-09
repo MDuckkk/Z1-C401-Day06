@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sqlite3
 import sys
 from pathlib import Path
 
-from agent import graph
+from agent import graph, has_llm_credentials
 
 
 ROOT_DIR = Path(__file__).resolve().parent
@@ -122,8 +121,8 @@ def main() -> None:
     configure_stdout()
     args = parse_args()
 
-    if not os.getenv("OPENAI_API_KEY"):
-        raise EnvironmentError("Thieu OPENAI_API_KEY. Hay them key vao .env hoac bien moi truong.")
+    if not has_llm_credentials() or graph is None:
+        raise EnvironmentError("Thiếu OPENAI_API_KEY hoặc GITHUB_TOKEN/GITHUB_ACCESS_TOKEN trong .env.")
 
     sample = get_sample_context()
     if args.show_sample:

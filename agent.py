@@ -1,35 +1,72 @@
 import os
-from dotenv import load_dotenv
-
-load_dotenv()  # phải load trước khi dùng os.getenv
-
+from functools import lru_cache
+from pathlib import Path
 from typing import Annotated
-from typing_extensions import TypedDict
-from langgraph.graph import StateGraph, START, END
+
+from dotenv import load_dotenv
+from langchain_core.messages import SystemMessage
+from langchain_openai import ChatOpenAI
+from langgraph.graph import START, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import SystemMessage
-from tools import get_nearest_branch, get_suitable_availibility_doctor, get_today_date, get_all_specialties, tools_list, get_doctor_profile
-from dotenv import load_dotenv
+from typing_extensions import TypedDict
+
+from tools import tools_list
+
 
 load_dotenv()
 
-# 1. Đọc System Prompt
-with open("system_prompt.txt", "r", encoding="utf-8") as f:
-    SYSTEM_PROMPT = f.read()
+ROOT_DIR = Path(__file__).resolve().parent
+SYSTEM_PROMPT = (ROOT_DIR / "system_prompt.txt").read_text(encoding="utf-8")
 
 # 2. Khai báo State
 class AgentState(TypedDict):
     messages: Annotated[list, add_messages]
 
-# 3. Khởi tạo LLM và Tools
-tools_list = [get_doctor_profile, get_nearest_branch, get_suitable_availibility_doctor, get_today_date, get_all_specialties]
-llm = ChatOpenAI(model="gpt-4o-mini")
-llm_with_tools = llm.bind_tools(tools_list)
 
-# 4. Agent Node
+def _resolve_llm_config() -> dict[str, object]:
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    if openai_api_key:
+        return {
+            "api_key": openai_api_key,
+            "model": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+            "base_url": os.getenv("OPENAI_BASE_URL") or None,
+            "default_headers": None,
+        }
+
+    github_token = (
+        os.getenv("GITHUB_TOKEN")
+        or os.getenv("GITHUB_ACCESS_TOKEN")
+        or os.getenv("GH_TOKEN")
+    )
+    if github_token:
+        return {
+            "api_key": github_token,
+            "model": os.getenv("GITHUB_MODEL") or os.getenv("OPENAI_MODEL") or "openai/gpt-4o-mini",
+            "base_url": os.getenv("GITHUB_MODELS_BASE_URL") or "https://models.github.ai/inference",
+            "default_headers": {
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+            },
+        }
+
+    raise EnvironmentError(
+        "Thiếu OPENAI_API_KEY hoặc GITHUB_TOKEN/GITHUB_ACCESS_TOKEN trong .env."
+    )
+
+
+def has_llm_credentials() -> bool:
+    return bool(
+        os.getenv("OPENAI_API_KEY")
+        or os.getenv("GITHUB_TOKEN")
+        or os.getenv("GITHUB_ACCESS_TOKEN")
+        or os.getenv("GH_TOKEN")
+    )
+
+
+# 3. Agent Node
 def agent_node(state: AgentState):
+    llm_with_tools = _get_llm_with_tools()
     messages = state["messages"]
     if not isinstance(messages[0], SystemMessage):
         messages = [SystemMessage(content=SYSTEM_PROMPT)] + messages
@@ -44,21 +81,43 @@ def agent_node(state: AgentState):
         
     return {"messages": [response]}
 
-# 5. Xây dựng Graph
-builder = StateGraph(AgentState)
-builder.add_node("agent", agent_node)
+@lru_cache(maxsize=1)
+def _get_llm_with_tools():
+    config = _resolve_llm_config()
+    llm_kwargs = {
+        "model": str(config["model"]),
+        "api_key": str(config["api_key"]),
+    }
+    if config["base_url"]:
+        llm_kwargs["base_url"] = config["base_url"]
+    if config["default_headers"]:
+        llm_kwargs["default_headers"] = config["default_headers"]
 
-tool_node = ToolNode(tools_list)
-builder.add_node("tools", tool_node)
+    llm = ChatOpenAI(**llm_kwargs)
+    return llm.bind_tools(tools_list)
 
-builder.add_edge(START, "agent")
-builder.add_conditional_edges("agent", tools_condition)
-builder.add_edge("tools", "agent")
 
-graph = builder.compile()
+@lru_cache(maxsize=1)
+def get_graph():
+    builder = StateGraph(AgentState)
+    builder.add_node("agent", agent_node)
+
+    tool_node = ToolNode(tools_list)
+    builder.add_node("tools", tool_node)
+
+    builder.add_edge(START, "agent")
+    builder.add_conditional_edges("agent", tools_condition)
+    builder.add_edge("tools", "agent")
+    return builder.compile()
+
+
+graph = get_graph() if has_llm_credentials() else None
 
 # 6. Chat loop
 if __name__ == "__main__":
+    if graph is None:
+        raise EnvironmentError("Thiếu OPENAI_API_KEY hoặc GITHUB_TOKEN/GITHUB_ACCESS_TOKEN trong .env.")
+
     print("=" * 60)
     print("Trợ lý ảo tư vấn bác sĩ - Vinmec")
     print(" Gõ 'quit' để thoát")

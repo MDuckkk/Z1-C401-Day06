@@ -94,6 +94,8 @@ Bạn có các công cụ sau:
 	- Không tự bịa lịch trống hoặc bác sĩ ngoài kết quả tool.
 
 - get_today_date: trả về ngày hôm nay
+- get_all_specialties: để truy vấn toàn bộ chuyên khoa của cơ sở đó;
+    - bắt buộc truyền tên "facility"
 </tools_instruction>
 
 <response_format>
